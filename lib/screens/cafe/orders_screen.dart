@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../models/cafe_model.dart';
+import 'dart:developer' as developer;
 import '../../services/pocketbase_service.dart';
+import '../../services/order_service.dart'; // Update import
 import '../../utils/app_colors.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final OrderService _orderService = OrderService();
 
   @override
   void initState() {
@@ -33,6 +35,26 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
         title: const Text('My Orders'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshCurrentTab,
+          ),
+          // Debug button - sekarang method sudah ada
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () async {
+              developer.log('🔄 Creating test order...');
+              await _orderService.createTestOrder(); // Method ini sekarang ada
+              _refreshCurrentTab();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Test order created! Pull to refresh.')),
+                );
+              }
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -59,8 +81,15 @@ class _OrdersScreenState extends State<OrdersScreen> with SingleTickerProviderSt
       ),
     );
   }
+
+  void _refreshCurrentTab() {
+    setState(() {
+      // This will rebuild the TabBarView and refresh the current tab
+    });
+  }
 }
 
+// Sisanya sama seperti sebelumnya...
 class ReservationsTab extends StatefulWidget {
   const ReservationsTab({super.key});
 
@@ -91,7 +120,6 @@ class _ReservationsTabState extends State<ReservationsTab> {
     try {
       final pb = _pbService.pb;
 
-      // Check if user is authenticated
       final userId = pb.authStore.model?.id;
       if (userId == null) {
         setState(() {
@@ -104,7 +132,7 @@ class _ReservationsTabState extends State<ReservationsTab> {
       final records = await pb.collection('reservations').getFullList(
         sort: '-date,-created',
         filter: 'user = "$userId"',
-        expand: 'cafe,table', // Expand cafe and table relations
+        expand: 'cafe,table',
       );
 
       if (!mounted) return;
@@ -175,7 +203,7 @@ class _ReservationsTabState extends State<ReservationsTab> {
             ),
             SizedBox(height: 8),
             Text(
-              'Your reservation Orders will appear here',
+              'Your reservation orders will appear here',
               style: TextStyle(color: Colors.grey),
             ),
           ],
@@ -183,53 +211,24 @@ class _ReservationsTabState extends State<ReservationsTab> {
       );
     }
 
-    // Group reservations by status
-    final activeReservations = _reservations.where((r) =>
-    r.status.toLowerCase() == 'pending' ||
-        r.status.toLowerCase() == 'confirmed').toList();
-
-    final pastReservations = _reservations.where((r) =>
-    r.status.toLowerCase() == 'completed' ||
-        r.status.toLowerCase() == 'cancelled' ||
-        r.status.toLowerCase() == 'canceled').toList();
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (activeReservations.isNotEmpty) ...[
-          const Text(
-            'Active Reservations',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
+        const Text(
+          'Your Reservations',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
           ),
-          const SizedBox(height: 8),
-          ...activeReservations.map((reservation) => _buildReservationCard(reservation)),
-          const SizedBox(height: 24),
-        ],
-
-        if (pastReservations.isNotEmpty) ...[
-          const Text(
-            'Past Reservations',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...pastReservations.map((reservation) => _buildReservationCard(reservation)),
-        ],
+        ),
+        const SizedBox(height: 8),
+        ..._reservations.map((reservation) => _buildReservationCard(reservation)),
       ],
     );
   }
 
   Widget _buildReservationCard(ReservationData reservation) {
-    final isActive = reservation.status.toLowerCase() == 'pending' ||
-        reservation.status.toLowerCase() == 'confirmed';
-
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
@@ -244,167 +243,24 @@ class _ReservationsTabState extends State<ReservationsTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.restaurant,
-                      color: AppColors.primary,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      reservation.cafeName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  ],
+                Text(
+                  reservation.cafeName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
                 ),
                 _buildStatusBadge(reservation.status),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(
-                  Icons.event_seat,
-                  size: 16,
-                  color: AppColors.textLight,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Table ${reservation.tableNumber}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Icon(
-                  Icons.people,
-                  size: 16,
-                  color: AppColors.textLight,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${reservation.guestCount} guests',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(
-                  Icons.calendar_today,
-                  size: 16,
-                  color: AppColors.textLight,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  reservation.date,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Icon(
-                  Icons.access_time,
-                  size: 16,
-                  color: AppColors.textLight,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  reservation.timeSlot,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (isActive)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      _showCancelConfirmation(reservation);
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
-                    ),
-                    child: const Text('Cancel Reservation'),
-                  ),
-                ],
-              ),
+            Text('Table ${reservation.tableNumber} • ${reservation.guestCount} guests'),
+            Text('${reservation.date} at ${reservation.timeSlot}'),
           ],
         ),
       ),
     );
-  }
-
-  void _showCancelConfirmation(ReservationData reservation) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel Reservation'),
-        content: const Text('Are you sure you want to cancel this reservation?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _cancelReservation(reservation.id);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            child: const Text('Yes, Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _cancelReservation(String reservationId) async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final pb = _pbService.pb;
-
-      await pb.collection('reservations').update(reservationId, body: {
-        'status': 'cancelled',
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reservation cancelled successfully')),
-      );
-
-      _fetchReservations();
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to cancel reservation: $e')),
-      );
-    }
   }
 
   Widget _buildStatusBadge(String status) {
@@ -419,15 +275,6 @@ class _ReservationsTabState extends State<ReservationsTab> {
       case 'pending':
         backgroundColor = Colors.orange.shade100;
         textColor = Colors.orange.shade700;
-        break;
-      case 'completed':
-        backgroundColor = Colors.blue.shade100;
-        textColor = Colors.blue.shade700;
-        break;
-      case 'cancelled':
-      case 'canceled':
-        backgroundColor = Colors.red.shade100;
-        textColor = Colors.red.shade700;
         break;
       default:
         backgroundColor = Colors.grey.shade200;
@@ -482,8 +329,9 @@ class _OrdersTabState extends State<OrdersTab> {
     try {
       final pb = _pbService.pb;
 
-      // Check if user is authenticated
       final userId = pb.authStore.model?.id;
+      developer.log('🔍 OrdersScreen - User ID: $userId');
+
       if (userId == null) {
         setState(() {
           _errorMessage = 'You need to be logged in to view orders';
@@ -495,8 +343,10 @@ class _OrdersTabState extends State<OrdersTab> {
       final records = await pb.collection('orders').getFullList(
         sort: '-created',
         filter: 'user = "$userId"',
-        expand: 'cafe', // Tambahkan ini untuk mengambil data cafe terkait
+        expand: 'cafe',
       );
+
+      developer.log('🔍 OrdersScreen - Found ${records.length} orders');
 
       if (!mounted) return;
 
@@ -505,6 +355,8 @@ class _OrdersTabState extends State<OrdersTab> {
         _isLoading = false;
       });
     } catch (e) {
+      developer.log('❌ OrdersScreen - Error: $e');
+
       if (!mounted) return;
 
       setState(() {
@@ -550,77 +402,53 @@ class _OrdersTabState extends State<OrdersTab> {
     }
 
     if (_orders.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.receipt_long, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'No orders yet',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
+      return ListView(
+        children: [
+          const SizedBox(height: 100),
+          const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  'No orders yet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Your food orders will appear here',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
             ),
-            SizedBox(height: 8),
-            Text(
-              'Your order Orders will appear here',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
     }
-
-    // Group orders by status
-    final activeOrders = _orders.where((o) =>
-    o.status.toLowerCase() == 'pending' ||
-        o.status.toLowerCase() == 'preparing').toList();
-
-    final pastOrders = _orders.where((o) =>
-    o.status.toLowerCase() == 'completed' ||
-        o.status.toLowerCase() == 'cancelled' ||
-        o.status.toLowerCase() == 'canceled').toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (activeOrders.isNotEmpty) ...[
-          const Text(
-            'Active Orders',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
+        const Text(
+          'Your Orders',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
           ),
-          const SizedBox(height: 8),
-          ...activeOrders.map((order) => _buildOrderCard(order)),
-          const SizedBox(height: 24),
-        ],
-
-        if (pastOrders.isNotEmpty) ...[
-          const Text(
-            'Past Orders',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...pastOrders.map((order) => _buildOrderCard(order)),
-        ],
+        ),
+        const SizedBox(height: 8),
+        ..._orders.map((order) => _buildOrderCard(order)),
       ],
     );
   }
 
   Widget _buildOrderCard(OrderData order) {
-    final isActive = order.status.toLowerCase() == 'pending' ||
-        order.status.toLowerCase() == 'preparing';
-
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
@@ -635,140 +463,26 @@ class _OrdersTabState extends State<OrdersTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.local_cafe,
-                      color: AppColors.primary,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      order.cafeName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  ],
+                Text(
+                  order.cafeName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
                 ),
                 _buildStatusBadge(order.status),
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              'Order #${order.orderId}',
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textLight,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Total: Rp${_formatCurrency(order.totalAmount)}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
-            ),
-            if (order.notes.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Notes: ${order.notes}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textLight,
-                  fontStyle: FontStyle.italic,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            const SizedBox(height: 4),
-            Text(
-              'Created: ${order.createdAt}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textLight,
-              ),
-            ),
-            if (isActive)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      _showCancelConfirmation(order);
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
-                    ),
-                    child: const Text('Cancel Order'),
-                  ),
-                ],
-              ),
+            Text('Order #${order.orderId}'),
+            Text('Total: Rp${_formatCurrency(order.totalAmount)}'),
+            if (order.notes.isNotEmpty) Text('Notes: ${order.notes}'),
+            Text('Created: ${order.createdAt}'),
           ],
         ),
       ),
     );
-  }
-
-  void _showCancelConfirmation(OrderData order) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel Order'),
-        content: const Text('Are you sure you want to cancel this order?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _cancelOrder(order.id);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            child: const Text('Yes, Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _cancelOrder(String orderId) async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final pb = _pbService.pb;
-
-      await pb.collection('orders').update(orderId, body: {
-        'status': 'cancelled',
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order cancelled successfully')),
-      );
-
-      _fetchOrders();
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to cancel order: $e')),
-      );
-    }
   }
 
   Widget _buildStatusBadge(String status) {
@@ -787,11 +501,6 @@ class _OrdersTabState extends State<OrdersTab> {
       case 'preparing':
         backgroundColor = Colors.blue.shade100;
         textColor = Colors.blue.shade700;
-        break;
-      case 'cancelled':
-      case 'canceled':
-        backgroundColor = Colors.red.shade100;
-        textColor = Colors.red.shade700;
         break;
       default:
         backgroundColor = Colors.grey.shade200;
@@ -823,6 +532,7 @@ class _OrdersTabState extends State<OrdersTab> {
   }
 }
 
+// Data classes
 class OrderData {
   final String id;
   final String orderId;
@@ -843,15 +553,11 @@ class OrderData {
   });
 
   factory OrderData.fromRecord(dynamic record) {
-    // Safely extract data from PocketBase record
     final data = record.data as Map<String, dynamic>? ?? {};
 
-    // Ambil cafe ID dan user ID
     final cafeId = data['cafe'] ?? '';
-    final userId = data['user'] ?? '';
 
-    // Coba ambil nama cafe dari expand jika tersedia
-    String cafeName = 'Cafe';
+    String cafeName = 'Default Cafe';
     if (data['expand'] != null && data['expand']['cafe'] != null) {
       cafeName = data['expand']['cafe']['name'] ?? cafeName;
     } else if (cafeId.toString().length >= 6) {
@@ -861,15 +567,30 @@ class OrderData {
     final id = record.id?.toString() ?? '';
     final orderId = id.isNotEmpty && id.length >= 8 ? id.substring(0, 8) : id;
 
+    String displayNotes = data['notes']?.toString() ?? '';
+    displayNotes = _cleanNotesForDisplay(displayNotes);
+
     return OrderData(
       id: id,
       orderId: orderId,
       cafeName: cafeName,
       totalAmount: _parseAmount(data['total_amount']),
       status: data['status']?.toString() ?? 'pending',
-      notes: data['notes']?.toString() ?? '',
+      notes: displayNotes,
       createdAt: _formatDate(record.created?.toString() ?? ''),
     );
+  }
+
+  static String _cleanNotesForDisplay(String notes) {
+    String cleanNotes = notes;
+    cleanNotes = cleanNotes.replaceAll(RegExp(r'\s*\|\s*Payment: [^|]+'), '');
+    cleanNotes = cleanNotes.replaceAll(RegExp(r'\s*\|\s*Customer: [^|]+'), '');
+    cleanNotes = cleanNotes.replaceAll(RegExp(r'\s*\|\s*Email: [^|]+'), '');
+    cleanNotes = cleanNotes.replaceAll(RegExp(r'\s*\|\s*TxnID: [^|]+'), '');
+    cleanNotes = cleanNotes.replaceAll(RegExp(r'\s*\|\s*\|\s*'), ' | ');
+    cleanNotes = cleanNotes.replaceAll(RegExp(r'^\s*\|\s*'), '');
+    cleanNotes = cleanNotes.replaceAll(RegExp(r'\s*\|\s*$'), '');
+    return cleanNotes.trim();
   }
 
   static double _parseAmount(dynamic amount) {
@@ -917,14 +638,11 @@ class ReservationData {
   });
 
   factory ReservationData.fromRecord(dynamic record) {
-    // Safely extract data from PocketBase record
     final data = record.data as Map<String, dynamic>? ?? {};
 
-    // Ambil cafe ID dan table ID
     final cafeId = data['cafe'] ?? '';
     final tableId = data['table'] ?? '';
 
-    // Coba ambil nama cafe dari expand jika tersedia
     String cafeName = 'Cafe';
     if (data['expand'] != null && data['expand']['cafe'] != null) {
       cafeName = data['expand']['cafe']['name'] ?? cafeName;
@@ -932,7 +650,6 @@ class ReservationData {
       cafeName = 'Cafe #${cafeId.toString().substring(0, 6)}';
     }
 
-    // Coba ambil nomor meja dari expand jika tersedia
     String tableNumber = 'Unknown';
     if (data['expand'] != null && data['expand']['table'] != null) {
       tableNumber = data['expand']['table']['table_number'] ?? tableNumber;
@@ -940,7 +657,6 @@ class ReservationData {
       tableNumber = tableId.toString().substring(0, 6);
     }
 
-    // Format tanggal
     String formattedDate = 'Unknown date';
     try {
       final date = DateTime.parse(data['date'] ?? '');

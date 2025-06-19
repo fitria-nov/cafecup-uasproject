@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:webview_flutter/webview_flutter.dart';
+import '../../services/order_service.dart'; // Updated import
 
 class PaymentScreen extends StatefulWidget {
   final String orderId;
@@ -27,8 +28,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _errorMessage;
   String? _snapToken;
 
+  // Add OrderService instance
+  final OrderService _orderService = OrderService();
+
   // Ganti dengan URL backend Flask Anda
-  static const String backendUrl = 'https://midtrans-backend-production-0501.up.railway.app/'; // Sesuaikan dengan URL deployment Anda
+  static const String backendUrl = 'https://midtrans-backend-production-0501.up.railway.app/';
+
+  @override
+  void initState() {
+    super.initState();
+    // Test order creation on init (for debugging)
+    _testOrderCreation();
+  }
+
+  // Debug method to test order creation
+  Future<void> _testOrderCreation() async {
+    developer.log('🔍 Testing order creation...');
+    await _orderService.testCreateOrder();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +55,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
+        // Add debug button
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: _testOrderCreation,
+            tooltip: 'Test Order Creation',
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -349,7 +374,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         final result = await _openMidtransPayment(token);
 
         if (result != null && mounted) {
-          _handlePaymentResult(result);
+          await _handlePaymentResult(result); // Make this async
         }
       }
 
@@ -402,7 +427,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<Map<String, dynamic>?> _openMidtransPayment(String snapToken) async {
-    // Buka halaman payment Midtrans menggunakan WebView
     return await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
@@ -414,8 +438,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  void _handlePaymentResult(Map<String, dynamic> result) {
+  // Modified _handlePaymentResult to be async and add more debugging
+  Future<void> _handlePaymentResult(Map<String, dynamic> result) async {
     final status = result['status'] ?? 'unknown';
+    final transactionId = result['transaction_id'];
+
+    developer.log('🔍 Payment result: $result');
+
+    // Save order to PocketBase when payment is successful or pending
+    if (status == 'success' || status == 'settlement' || status == 'pending') {
+      developer.log('🔄 Saving order to PocketBase...');
+
+      await _orderService.saveOrderFromPayment(
+        orderId: widget.orderId,
+        totalAmount: widget.amount.toDouble(),
+        customerName: widget.customerName ?? 'Customer',
+        customerEmail: widget.customerEmail ?? 'customer@email.com',
+        paymentStatus: status,
+        transactionId: transactionId,
+      );
+
+      developer.log('✅ Order save attempt completed');
+    }
 
     String message;
     Color backgroundColor;
@@ -423,11 +467,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
     switch (status) {
       case 'success':
       case 'settlement':
-        message = 'Payment Successful!';
+        message = 'Payment Successful! Check your orders.';
         backgroundColor = Colors.green;
         break;
       case 'pending':
-        message = 'Payment Pending';
+        message = 'Payment Pending. Check your orders.';
         backgroundColor = Colors.orange;
         break;
       case 'failed':
@@ -445,17 +489,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
         backgroundColor = Colors.grey;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: backgroundColor,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: const Duration(seconds: 3),
+        ),
+      );
 
-    if (status == 'success' || status == 'settlement') {
-      // Navigate to success page atau kembali ke home
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      if (status == 'success' || status == 'settlement') {
+        // Navigate to success page atau kembali ke home
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     }
   }
 
@@ -467,6 +513,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 }
 
+// MidtransPaymentPage remains the same
 class MidtransPaymentPage extends StatefulWidget {
   final String snapToken;
   final String orderId;
@@ -504,14 +551,11 @@ class _MidtransPaymentPageState extends State<MidtransPaymentPage> {
             setState(() {
               _isLoading = false;
             });
-
-            // Check if payment is completed
             _checkPaymentStatus(url);
           },
           onNavigationRequest: (NavigationRequest request) {
             developer.log('Navigation request: ${request.url}');
 
-            // Handle payment completion URLs
             if (request.url.contains('finish') ||
                 request.url.contains('success') ||
                 request.url.contains('error') ||
@@ -606,7 +650,6 @@ class _MidtransPaymentPageState extends State<MidtransPaymentPage> {
   }
 
   void _checkPaymentStatus(String url) {
-    // Additional check for payment status if needed
     if (url.contains('payment://')) {
       _handlePaymentCompletion(url);
     }
@@ -627,13 +670,11 @@ class _MidtransPaymentPageState extends State<MidtransPaymentPage> {
       result = {'status': 'cancel'};
     }
 
-    // Extract additional parameters from URL if available
     Uri uri = Uri.parse(url);
     uri.queryParameters.forEach((key, value) {
       result[key] = value;
     });
 
-    // Return result to previous screen
     Navigator.pop(context, result);
   }
 

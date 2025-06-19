@@ -4,6 +4,9 @@ import '../../models/menu_item_model.dart';
 import '../../services/pocketbase_service.dart';
 import '../../utils/app_colors.dart';
 import 'menu_screen.dart';
+import 'map_screen.dart';
+import 'contact_screen.dart';
+import '../reservation/reserve_table_screen.dart';
 
 class CafeDetailScreen extends StatefulWidget {
   final Cafe cafe;
@@ -48,7 +51,7 @@ class _CafeDetailScreenState extends State<CafeDetailScreen> {
       final pb = PocketBaseService().pb;
       final records = await pb.collection('menu_items').getFullList(
         filter: 'cafe = "${widget.cafe.id}"',
-        sort: '-created', // Urutkan berdasarkan yang terbaru
+        sort: '-created',
       );
       setState(() {
         _popularItems = records.map((record) => MenuItem.fromRecord(record)).toList();
@@ -95,7 +98,7 @@ class _CafeDetailScreenState extends State<CafeDetailScreen> {
                 _buildSpecialties(),
                 _buildPopularItems(),
                 _buildReviews(),
-                const SizedBox(height: 100), // Space for bottom buttons
+                const SizedBox(height: 100),
               ],
             ),
           ),
@@ -148,7 +151,7 @@ class _CafeDetailScreenState extends State<CafeDetailScreen> {
         IconButton(
           icon: const Icon(Icons.share, color: Colors.white),
           onPressed: () {
-            // TODO: Implement share functionality
+            _shareCafe();
           },
         ),
       ],
@@ -209,7 +212,7 @@ class _CafeDetailScreenState extends State<CafeDetailScreen> {
               ),
               const SizedBox(width: 8),
               const Text(
-                '(124 reviews)', // Hard-coded seperti sebelumnya
+                '(124 reviews)',
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.textLight,
@@ -269,7 +272,11 @@ class _CafeDetailScreenState extends State<CafeDetailScreen> {
               icon: Icons.directions,
               label: 'Directions',
               onTap: () {
-                // TODO: Open maps
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => MapScreen(cafe: widget.cafe),
+                  ),
+                );
               },
             ),
           ),
@@ -279,17 +286,11 @@ class _CafeDetailScreenState extends State<CafeDetailScreen> {
               icon: Icons.phone,
               label: 'Call',
               onTap: () {
-                // TODO: Make phone call
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.event_seat,
-              label: 'Reserve',
-              onTap: () {
-                // TODO: Make reservation
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ContactScreen(cafe: widget.cafe),
+                  ),
+                );
               },
             ),
           ),
@@ -644,7 +645,11 @@ class _CafeDetailScreenState extends State<CafeDetailScreen> {
           Expanded(
             child: OutlinedButton(
               onPressed: () {
-                // TODO: Make reservation
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ReserveTableScreen(cafe: widget.cafe),
+                  ),
+                );
               },
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -679,6 +684,17 @@ class _CafeDetailScreenState extends State<CafeDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Helper methods
+  void _shareCafe() {
+    // Implementasi share
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Share feature will be implemented'),
+        duration: Duration(seconds: 2),
       ),
     );
   }

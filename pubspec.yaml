@@ -13,6 +13,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 #  http: ^1.1.0
   shared_preferences: ^2.2.2
+  google_maps_flutter: ^2.5.3
   geolocator: ^10.1.0
   permission_handler: ^11.0.1
   image_picker: ^1.0.4
@@ -20,6 +21,9 @@ dependencies:
   pocketbase: ^0.18.0
   provider: ^6.1.1
   intl: ^0.18.0
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  url_launcher: ^6.2.2
   webview_flutter: ^4.8.0  # Untuk menampilkan halaman Snap Midtrans
   http: ^1.2.2  # Untuk komunikasi dengan backend
   midtrans_sdk: ^0.4.0

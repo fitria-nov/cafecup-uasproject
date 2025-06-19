@@ -41,13 +41,13 @@ class _SearchScreenState extends State<SearchScreen> {
         sort: 'name',
       );
 
-      final List<Cafe> cafes = records.map((record) {
+      final List<Cafe> cafe = records.map((record) {
         return Cafe.fromRecord(record);
       }).toList();
 
       setState(() {
-        _allCafes = cafes;
-        _filteredCafes = cafes;
+        _allCafes = cafe;
+        _filteredCafes = cafe;
         _isLoading = false;
       });
     } catch (e) {
@@ -266,6 +266,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildCafeCard(Cafe cafe) {
     return GestureDetector(
       onTap: () {
+        // Navigasi ke CafeDetailScreen ketika cafe card di-tap
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => CafeDetailScreen(cafe: cafe),

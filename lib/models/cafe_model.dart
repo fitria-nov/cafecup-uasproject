@@ -1,4 +1,5 @@
 import 'package:pocketbase/pocketbase.dart';
+import 'package:latlong2/latlong.dart';
 
 class Cafe {
   final String id;
@@ -9,7 +10,12 @@ class Cafe {
   final String imageUrl;
   final bool isOpen;
   final List<String> specialties;
-  final String description; // Tambah field ini
+  final double latitude;
+  final double longitude;
+  final String description;
+
+  // Tambahkan getter ini untuk flutter_map
+  LatLng get location => LatLng(latitude, longitude);
 
   Cafe({
     required this.id,
@@ -20,48 +26,26 @@ class Cafe {
     required this.imageUrl,
     required this.isOpen,
     required this.specialties,
+    required this.latitude,
+    required this.longitude,
     required this.description,
   });
-
-  factory Cafe.fromJson(Map<String, dynamic> json) {
-    return Cafe(
-      id: json['id'],
-      name: json['name'],
-      address: json['address'],
-      rating: json['rating'].toDouble(),
-      distance: json['distance'].toDouble(),
-      imageUrl: json['imageUrl'],
-      isOpen: json['isOpen'],
-      specialties: List<String>.from(json['specialties']),
-      description: json['description'],
-    );
-  }
 
   factory Cafe.fromRecord(RecordModel record) {
     return Cafe(
       id: record.id,
-      name: record.data['name'] as String,
-      address: record.data['address'] as String,
-      rating: (record.data['rating'] as num).toDouble(),
-      distance: (record.data['distance'] as num).toDouble(),
-      imageUrl: record.data['imageUrl'] as String,
-      isOpen: record.data['isOpen'] as bool,
-      specialties: (record.data['specialties'] as List<dynamic>).cast<String>(),
-      description: record.data['description'] as String,
+      name: record.data['name'] as String? ?? '',
+      address: record.data['address'] as String? ?? '',
+      rating: (record.data['rating'] as num?)?.toDouble() ?? 0.0,
+      distance: (record.data['distance'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: record.data['imageUrl'] as String? ?? '',
+      isOpen: record.data['isOpen'] as bool? ?? false,
+      specialties: record.data['specialties'] != null
+          ? (record.data['specialties'] as List<dynamic>).cast<String>()
+          : [],
+      latitude: (record.data['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (record.data['longitude'] as num?)?.toDouble() ?? 0.0,
+      description: record.data['description'] as String? ?? '',
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'address': address,
-      'rating': rating,
-      'distance': distance,
-      'imageUrl': imageUrl,
-      'isOpen': isOpen,
-      'specialties': specialties,
-      'description': description,
-    };
   }
 }

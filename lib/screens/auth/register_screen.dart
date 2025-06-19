@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/pocketbase_service.dart';
 import '../../utils/app_colors.dart';
-import 'user_type_selection_screen.dart';
+import 'login_screen.dart'; // Changed import from user_type_selection_screen.dart
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -58,23 +58,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
         // Set pesan sukses
         setState(() {
-          _message = 'Registration successful! Please select your user type.';
+          _message = 'Registration successful! Please sign in with your new account.';
         });
 
-        // Simpan data untuk UserTypeSelectionScreen
-        final userDataForNextScreen = {
-          'name': _nameController.text,
-          'email': _emailController.text,
-          'password': _passwordController.text,
-        };
-
-        // Navigasi ke UserTypeSelectionScreen
+        // Navigasi langsung ke LoginScreen
         if (mounted) {
-          Navigator.of(context).push(
+          Navigator.of(context).pushReplacement(
             MaterialPageRoute(
-              builder: (context) => UserTypeSelectionScreen(
-                userData: userDataForNextScreen,
-              ),
+              builder: (context) => const LoginScreen(),
             ),
           );
         }
@@ -369,3 +360,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+

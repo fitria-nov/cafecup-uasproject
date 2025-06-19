@@ -86,19 +86,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ONLY THIS METHOD IS CHANGED - removed onLocationSelected parameter
   void _selectLocation() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SelectCafeScreen(
-          onLocationSelected: (location) {
-            setState(() {
-              _selectedLocation = location;
-              _isLoading = true;
-            });
-            _fetchCafes();
-          },
-        ),
+        builder: (context) => const SelectCafeScreen(),
       ),
     );
   }
